@@ -1,0 +1,5 @@
+question,variant,step,tool,planned_args,agent_args,pre_ok,error
+"I want to escape the summer heat from New York and head somewhere cool in Northern Europe, preferably by plane.",hint,1,set_origin,"[""New York""]","[""New York""]",1,
+"I want to escape the summer heat from New York and head somewhere cool in Northern Europe, preferably by plane.",hint,2,set_destination,"[""Copenhagen""]","[""Copenhagen""]",1,
+"I want to escape the summer heat from New York and head somewhere cool in Northern Europe, preferably by plane.",hint,3,select_transport,"[""flight""]","[""flight""]",1,
+"I want to escape the summer heat from New York and head somewhere cool in Northern Europe, preferably by plane.",hint,4,confirm_booking,[],[],1,

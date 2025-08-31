@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Execution Trace</title>
+<style>
+  :root {
+    --bg: #0b1020; --fg: #e7ecff; --muted:#9aa3b2; --card:#141a2f; --acc:#6ea8fe; --ok:#14b86a; --warn:#e5a50a;
+  }
+  html,body { background:var(--bg); color:var(--fg); margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+  .wrap { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 24px; margin: 8px 0 16px; }
+  .card { background:var(--card); border-radius:16px; padding:16px; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+  table { width:100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #273251; padding: 8px 10px; text-align:left; font-size: 14px; }
+  th { color: var(--muted); font-weight:600; }
+  code { background:#0f1630; padding:2px 6px; border-radius:8px; }
+  .controls { display:flex; align-items:center; gap:12px; margin: 16px 0; }
+  .btn { background: var(--acc); color:#fff; border:none; padding:8px 14px; border-radius:12px; cursor:pointer; font-weight:600; }
+  .slider { width: 240px; }
+  .panel h3 { margin:6px 0 6px; font-size: 16px; color:#c9d4ff; }
+  .kv { display:grid; grid-template-columns: 160px 1fr; gap:10px; margin: 8px 0; }
+  .kv div:first-child { color: var(--muted); }
+  .statepre { white-space: pre-wrap; background:#0f1630; padding:12px; border-radius:12px; font-size:13px; }
+  .badge-ok { color: var(--ok); font-weight:700; }
+  .badge-warn { color: var(--warn); font-weight:700; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔎 Agent Execution Trace</h1>
+
+  <div class="card">
+    <div class="controls">
+      <button id="play" class="btn">▶ Play</button>
+      <input id="scrub" type="range" min="1" max="4" step="1" value="1" class="slider" />
+      <div id="label" class="muted">Step 1 / 4</div>
+    </div>
+
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr><th>Step</th><th>Tool</th><th>Planned args</th><th>Agent args</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          
+              <tr>
+                <td>1</td>
+                <td>set_origin</td>
+                <td><code>["São Paulo"]</code></td>
+                <td><code>["São Paulo"]</code></td>
+                <td>✅</td>
+              </tr>
+            
+              <tr>
+                <td>2</td>
+                <td>set_destination</td>
+                <td><code>["Paris"]</code></td>
+                <td><code>["Paris"]</code></td>
+                <td>✅</td>
+              </tr>
+            
+              <tr>
+                <td>3</td>
+                <td>select_transport</td>
+                <td><code>["flight"]</code></td>
+                <td><code>["flight"]</code></td>
+                <td>✅</td>
+              </tr>
+            
+              <tr>
+                <td>4</td>
+                <td>confirm_booking</td>
+                <td><code>[]</code></td>
+                <td><code>[]</code></td>
+                <td>✅</td>
+              </tr>
+            
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div id="panel" class="panel"></div>
+  </div>
+</div>
+
+<script>
+const steps = [{"step": 1, "tool": "set_origin", "planned_args": ["São Paulo"], "agent_thought": "Setting the origin to São Paulo as per the plan.", "agent_args": ["São Paulo"], "pre_ok": true, "error": null, "observation": {"origin": {"before": null, "after": "São Paulo"}}, "state_after": {"origin": "São Paulo", "destination": null, "transport": null, "booking_confirmed": false}}, {"step": 2, "tool": "set_destination", "planned_args": ["Paris"], "agent_thought": "The origin is set to São Paulo, now I need to set the destination to Paris as per the plan.", "agent_args": ["Paris"], "pre_ok": true, "error": null, "observation": {"destination": {"before": null, "after": "Paris"}}, "state_after": {"origin": "São Paulo", "destination": "Paris", "transport": null, "booking_confirmed": false}}, {"step": 3, "tool": "select_transport", "planned_args": ["flight"], "agent_thought": "The destination is set to Paris, which is a well-known European art city. I will select flight as the transport mode as per the plan.", "agent_args": ["flight"], "pre_ok": true, "error": null, "observation": {"transport": {"before": null, "after": "flight"}}, "state_after": {"origin": "São Paulo", "destination": "Paris", "transport": "flight", "booking_confirmed": false}}, {"step": 4, "tool": "confirm_booking", "planned_args": [], "agent_thought": "All necessary information is filled in, proceed to confirm the booking.", "agent_args": [], "pre_ok": true, "error": null, "observation": {"booking_confirmed": {"before": false, "after": true}}, "state_after": {"origin": "São Paulo", "destination": "Paris", "transport": "flight", "booking_confirmed": true}}];
+
+const panel = document.getElementById('panel');
+const playBtn = document.getElementById('play');
+const scrub = document.getElementById('scrub');
+const label = document.getElementById('label');
+
+let playing = false;
+let timer = null;
+
+function render(n) {
+  const s = steps[n-1];
+  label.textContent = `Step ${n} / ${steps.length}`;
+
+  const status = (!s.error && s.pre_ok)
+    ? '<span class="badge-ok">OK</span>'
+    : `<span class="badge-warn">WARN</span>`;
+
+  panel.innerHTML = `
+    <h3>Step ${s.step}: ${s.tool} ${{status}}</h3>
+    <div class="kv"><div>Planned args</div><div><code>${JSON.stringify(s.planned_args)}</code></div></div>
+    <div class="kv"><div>Agent thought</div><div>${escapeHtml(s.agent_thought || '')}</div></div>
+    <div class="kv"><div>Agent args</div><div><code>${JSON.stringify(s.agent_args)}</code></div></div>
+    <div class="kv"><div>Error</div><div>${escapeHtml(s.error || '')}</div></div>
+    <div class="kv"><div>Observation</div><div><code>${JSON.stringify(s.observation)}</code></div></div>
+    <div class="kv"><div>State after</div><div class="statepre">${escapeHtml(JSON.stringify(s.state_after, null, 2))}</div></div>
+  `;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function next() {
+  const v = parseInt(scrub.value, 10);
+  if (v < steps.length) {
+    scrub.value = String(v + 1);
+    render(v + 1);
+  } else {
+    playing = false;
+    playBtn.textContent = "▶ Play";
+    clearInterval(timer);
+  }
+}
+
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "⏸ Pause" : "▶ Play";
+  if (playing) {
+    timer = setInterval(next, 1000);
+  } else {
+    clearInterval(timer);
+  }
+});
+
+scrub.addEventListener('input', () => {
+  render(parseInt(scrub.value, 10));
+});
+
+render(1);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Planner Execution Report</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto; margin: 24px; color: #0b1020; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #b7c1d6; padding: 8px 10px; text-align: left; font-size: 14px; }
+    th { background: #eef3ff; }
+    tr:nth-child(even) td { background: #fafcff; }
+    .controls { margin-bottom: 12px; display:flex; gap:12px; align-items:center; }
+    input[type=range] { width: 220px; }
+    .panel h3 { margin:6px 0; }
+    .tool-card { border:1px solid #dbe3f3; border-radius:12px; padding:10px; margin:8px 0; background:#f7faff; }
+    .muted { color:#6b7485; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef3ff; border:1px solid #dbe3f3; margin-left:6px; font-size:12px; }
+    code { background:#f3f6ff; padding:1px 6px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <h2>A* Tool-Chain (per-step candidates → chosen)</h2>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <label>Step: <span id="stepLabel">0/3</span></label>
+    <input type="range" id="scrubber" min="0" max="3" value="0">
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Considered tools</th>
+        <th>Chosen (tool & args)</th>
+        <th>Pred p</th>
+        <th>Combined p</th>
+        <th>Exec</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr style="display:none">
+  <td>0</td>
+  <td>set_origin</td>
+  <td><b>set_origin</b> ('New York',)</td>
+  <td>0.20</td>
+  <td>0.20</td>
+  <td>✅</td>
+</tr>
+<tr style="display:none">
+  <td>1</td>
+  <td>set_destination</td>
+  <td><b>set_destination</b> ('Reykjavik',)</td>
+  <td>0.70</td>
+  <td>0.70</td>
+  <td>✅</td>
+</tr>
+<tr style="display:none">
+  <td>2</td>
+  <td>select_transport</td>
+  <td><b>select_transport</b> ('flight',)</td>
+  <td>0.70</td>
+  <td>0.70</td>
+  <td>✅</td>
+</tr>
+<tr style="display:none">
+  <td>3</td>
+  <td>confirm_booking</td>
+  <td><b>confirm_booking</b> ()</td>
+  <td>0.90</td>
+  <td>0.84</td>
+  <td>✅</td>
+</tr>
+    </tbody>
+  </table>
+
+  <div class="panel" id="panel"></div>
+
+<script>
+  const rows = Array.from(document.querySelectorAll('#tbody tr'));
+  const stepLabel = document.getElementById('stepLabel');
+  const scrubber  = document.getElementById('scrubber');
+  const panel = document.getElementById('panel');
+  const steps = [{"step": 0, "tools": [{"tool": "set_origin", "prior": 1.0, "candidates": [{"args": ["New York"], "p": 0.2}]}], "chosen": {"tool": "set_origin", "args": ["New York"], "pred_prob": 0.2, "combined_p": 0.2}, "executed": true}, {"step": 1, "tools": [{"tool": "set_destination", "prior": 1.0, "candidates": [{"args": ["Reykjavik"], "p": 0.7}, {"args": ["Oslo"], "p": 0.7}, {"args": ["Helsinki"], "p": 0.7}]}], "chosen": {"tool": "set_destination", "args": ["Reykjavik"], "pred_prob": 0.7, "combined_p": 0.7}, "executed": true}, {"step": 2, "tools": [{"tool": "select_transport", "prior": 1.0, "candidates": [{"args": ["flight"], "p": 0.7}, {"args": ["train"], "p": 0.1}, {"args": ["bus"], "p": 0.1}]}], "chosen": {"tool": "select_transport", "args": ["flight"], "pred_prob": 0.7, "combined_p": 0.7}, "executed": true}, {"step": 3, "tools": [{"tool": "confirm_booking", "prior": 0.9299999999999999, "candidates": [{"args": [], "p": 0.9}]}], "chosen": {"tool": "confirm_booking", "args": [], "pred_prob": 0.9, "combined_p": 0.837}, "executed": true}];
+
+  let current = -1;
+
+  function renderPanel(n) {
+    const s = steps[n];
+    stepLabel.textContent = n + '/' + (steps.length - 1);
+
+    // Build "considered tools" section
+    let toolsHtml = '';
+    for (const t of s.tools) {
+      const candList = t.candidates.map(c => `
+        <li><code>${JSON.stringify(c.args)}</code> — p=${c.p.toFixed(2)}</li>
+      `).join('');
+      toolsHtml += `
+        <div class="tool-card">
+          <div><b>${t.tool}</b><span class="pill">prior=${t.prior.toFixed(2)}</span></div>
+          <div class="muted" style="margin-top:4px;">Candidates:</div>
+          <ul style="margin:6px 0 0 18px;">${candList || '<li class="muted">None</li>'}</ul>
+        </div>
+      `;
+    }
+
+    const chosen = s.chosen ? `
+      <div class="tool-card" style="border-color:#b5e0c6; background:#f2fbf6;">
+        <div><b>Chosen:</b> ${s.chosen.tool} <code>${JSON.stringify(s.chosen.args)}</code></div>
+        <div class="muted" style="margin-top:4px;">
+          pred_p=${Number(s.chosen.pred_prob).toFixed(2)}, combined_p=${Number(s.chosen.combined_p).toFixed(2)}
+        </div>
+      </div>
+    ` : '<div class="muted">No choice recorded.</div>';
+
+    panel.innerHTML = `
+      <h3>Step ${s.step}</h3>
+      <div class="muted">All tools considered this step, with their priors and candidate args:</div>
+      ${toolsHtml}
+      ${chosen}
+    `;
+  }
+
+  function showStep(n) {
+    rows.forEach((tr, idx) => { tr.style.display = idx <= n ? '' : 'none'; });
+    current = n;
+    scrubber.value = n;
+    renderPanel(n);
+  }
+
+  scrubber.addEventListener('input', (e) => {
+    showStep(parseInt(e.target.value));
+  });
+
+  document.getElementById('playBtn').addEventListener('click', () => {
+    const btn = event.target;
+    if (btn.dataset.playing === 'true') {
+      btn.dataset.playing = 'false';
+      btn.textContent = '▶ Play';
+      return;
+    }
+    btn.dataset.playing = 'true';
+    btn.textContent = '⏸ Pause';
+    const interval = setInterval(() => {
+      if (btn.dataset.playing !== 'true') { clearInterval(interval); return; }
+      if (current >= rows.length - 1) {
+        btn.dataset.playing = 'false';
+        btn.textContent = '▶ Play';
+        clearInterval(interval);
+        return;
+      }
+      showStep(current + 1);
+    }, 1000);
+  });
+
+  // init
+  showStep(0);
+</script>
+</body>
+</html>
