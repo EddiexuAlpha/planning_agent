@@ -141,4 +141,4 @@ python -m webbrowser out/seattle_van.html
 
 ## License
 
-MIT (or your preferred license). Update this section to match your needs.
+MIT
