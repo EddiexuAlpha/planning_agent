@@ -1,0 +1,20 @@
+# Core
+openai>=1.30.0
+tiktoken>=0.7.0
+python-dotenv>=1.0.1
+
+# Data & utilities
+numpy>=1.24
+pandas>=2.0
+tqdm>=4.66
+rich>=13.7
+
+# Planning/graphs (optional but commonly used)
+networkx>=3.2
+
+# HTML/report generation
+jinja2>=3.1
+
+# Optional: fast JSON & YAML
+orjson>=3.10.0
+PyYAML>=6.0.1
