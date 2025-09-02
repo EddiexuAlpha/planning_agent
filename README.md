@@ -1,4 +1,4 @@
-# SBPL Codingt — LLM‑based Multi‑API Planning (Travel/Tool Agent)
+# LLM‑based Multi‑API Planning (Travel/Tool Agent)
 
 This repo contains a lightweight, hackable planning agent with an interactive HTML visualizer. 
 It’s designed for experiments comparing **with/without prompt hint** settings, A*‑style planning over tool calls, 
